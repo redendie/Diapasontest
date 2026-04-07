@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Diapason</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg:#0d0f14; --card:rgba(255,255,255,.035); --border:rgba(200,169,110,.18);
+  --gold:#c8a96e; --gold2:#a07840; --text:#e8dcc8; --muted:#6b6455; --dim:#3a3428;
+  --green:#a8f5c2; --yellow:#f5e4a8; --red:#f5a8a8;
+}
+body {
+  min-height:100vh; background:var(--bg);
+  display:flex; flex-direction:column; align-items:center;
+  font-family:Georgia,'Times New Roman',serif; color:var(--text);
+  padding-bottom:40px; overflow-x:hidden;
+}
+.header { display:flex; flex-direction:column; align-items:center; gap:2px; padding:18px 0 6px; }
+.logo { font-size:26px; color:var(--gold); }
+.app-title { font-size:20px; font-weight:bold; letter-spacing:.12em; text-transform:uppercase; }
+.app-sub { font-size:10px; color:var(--muted); letter-spacing:.2em; text-transform:uppercase; }
+
+/* TABS */
+.tab-bar { width:100%; max-width:440px; display:flex; border-bottom:1px solid var(--border); padding:0 12px; gap:2px; }
+.tab-btn {
+  flex:1; padding:9px 2px; font-family:Georgia,serif; font-size:12px; letter-spacing:.04em;
+  cursor:pointer; background:none; border:none; color:var(--muted);
+  border-bottom:2px solid transparent; margin-bottom:-1px; transition:color .2s,border-color .2s;
+  -webkit-tap-highlight-color:transparent;
+}
+.tab-btn.active { color:var(--gold); border-bottom-color:var(--gold); }
+.tab-panel { display:none; width:100%; max-width:440px; padding:14px 12px; flex-direction:column; align-items:center; gap:12px; }
+.tab-panel.active { display:flex; }
+
+/* CARD */
+.card { width:100%; background:var(--card); border:1px solid var(--border); border-radius:13px; padding:20px 16px; }
+
+/* SCREENS */
+.screen { display:none; flex-direction:column; align-items:center; gap:12px; }
+.screen.active { display:flex; }
+.mic-icon { font-size:44px; }
+.idle-text { color:var(--muted); text-align:center; line-height:1.7; font-size:13px; }
+
+/* BUTTONS */
+.btn {
+  padding:12px 32px; background:linear-gradient(135deg,var(--gold),var(--gold2));
+  color:#0d0f14; border:none; border-radius:50px; font-size:13px;
+  font-family:Georgia,serif; font-weight:bold; cursor:pointer;
+  letter-spacing:.08em; box-shadow:0 4px 16px rgba(200,169,110,.28);
+  -webkit-tap-highlight-color:transparent;
+}
+.btn-stop { background:rgba(255,255,255,.07); color:var(--muted); box-shadow:none; border:1px solid rgba(255,255,255,.08); margin-top:6px; }
+
+/* NOTE DISPLAY */
+.note-wrap { display:flex; flex-direction:column; align-items:center; min-height:96px; justify-content:center; }
+.note-name { font-size:84px; font-weight:bold; line-height:1; font-style:italic; color:#2a2820; transition:color .15s,text-shadow .2s; }
+.note-name.in-tune { color:var(--green); text-shadow:0 0 36px rgba(168,245,194,.45); }
+.note-name.close   { color:var(--yellow); text-shadow:0 0 36px rgba(245,228,168,.35); }
+.note-name.off     { color:var(--red);    text-shadow:0 0 36px rgba(245,168,168,.35); }
+.note-octave { font-size:11px; color:#4a4438; letter-spacing:.15em; text-transform:uppercase; min-height:15px; }
+.note-freq { font-size:12px; color:var(--muted); font-family:'Courier New',monospace; min-height:18px; }
+
+/* GAUGE */
+.gauge-wrap { display:flex; align-items:center; gap:8px; width:100%; }
+.gauge-label { font-size:15px; color:var(--dim); width:12px; text-align:center; }
+.gauge-track { flex:1; height:7px; background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.05); border-radius:4px; position:relative; }
+.gauge-fill { position:absolute; top:0; left:0; height:100%; background:rgba(200,169,110,.12); border-radius:4px; transition:width .1s; }
+.gauge-needle { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:12px; height:12px; border-radius:50%; background:#444; z-index:2; transition:left .1s,background .2s,box-shadow .2s; }
+.gauge-mark { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:2px; height:13px; background:rgba(255,255,255,.1); border-radius:1px; }
+.cents-text { font-size:11px; color:var(--muted); letter-spacing:.1em; min-height:15px; font-family:'Courier New',monospace; }
+.history-wrap { display:flex; flex-wrap:wrap; gap:4px; justify-content:center; min-height:22px; max-width:260px; }
+.dot { width:5px; height:5px; border-radius:50%; }
+.legend { display:flex; gap:14px; font-size:11px; color:var(--dim); }
+
+/* SETTINGS */
+.sec-label { font-size:10px; color:var(--muted); letter-spacing:.18em; text-transform:uppercase; align-self:flex-start; }
+.opt-row { display:flex; gap:6px; flex-wrap:wrap; width:100%; }
+.opt-btn {
+  flex:1; min-width:58px; padding:8px 5px; background:rgba(255,255,255,.04);
+  border:1px solid var(--border); border-radius:8px; font-size:10px; color:var(--muted);
+  cursor:pointer; text-align:center; line-height:1.4; -webkit-tap-highlight-color:transparent;
+  transition:all .15s; font-family:Georgia,serif;
+}
+.opt-btn .on { display:block; font-size:12px; color:var(--text); margin-bottom:1px; }
+.opt-btn .od { display:block; font-size:9px; color:var(--dim); line-height:1.3; }
+.opt-btn.active { background:rgba(200,169,110,.13); border-color:var(--gold); }
+.opt-btn.active .on { color:var(--gold); }
+.slider-group { width:100%; display:flex; flex-direction:column; gap:10px; }
+.slider-row { display:flex; flex-direction:column; gap:3px; }
+.slider-label { display:flex; justify-content:space-between; font-size:11px; color:var(--muted); }
+.slider-label b { color:var(--gold); font-weight:normal; font-family:'Courier New',monospace; font-size:12px; }
+input[type=range] { width:100%; accent-color:var(--gold); cursor:pointer; }
+.slider-ends { display:flex; justify-content:space-between; font-size:9px; color:var(--dim); }
+.algo-bar { font-size:10px; color:var(--dim); letter-spacing:.1em; }
+
+/* TARGET */
+.note-picker { display:flex; flex-wrap:wrap; gap:5px; justify-content:center; width:100%; }
+.note-key { padding:7px 8px; background:rgba(255,255,255,.04); border:1px solid var(--border); border-radius:7px; font-size:13px; color:var(--muted); cursor:pointer; min-width:40px; text-align:center; -webkit-tap-highlight-color:transparent; transition:all .15s; }
+.note-key.active { background:rgba(200,169,110,.15); border-color:var(--gold); color:var(--gold); font-style:italic; }
+.oct-row { display:flex; gap:5px; flex-wrap:wrap; }
+.oct-btn { padding:6px 12px; background:rgba(255,255,255,.04); border:1px solid var(--border); border-radius:6px; font-size:12px; color:var(--muted); cursor:pointer; -webkit-tap-highlight-color:transparent; transition:all .15s; }
+.oct-btn.active { background:rgba(200,169,110,.15); border-color:var(--gold); color:var(--gold); }
+.t-display { font-size:52px; font-weight:bold; font-style:italic; color:var(--gold); line-height:1; }
+.t-hz { font-size:11px; color:var(--muted); font-family:'Courier New',monospace; }
+.bullseye-svg { width:100%; max-width:290px; }
+.b-status { font-size:12px; letter-spacing:.08em; min-height:18px; transition:color .2s; font-family:'Courier New',monospace; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <span class="logo">♩</span>
+  <span class="app-title">Diapason</span>
+  <span class="app-sub">détecteur de voix</span>
+</div>
+
+<div class="tab-bar">
+  <button class="tab-btn active" onclick="switchTab('diapason',this)">Diapason</button>
+  <button class="tab-btn" onclick="switchTab('settings',this)">Réglages</button>
+  <button class="tab-btn" onclick="switchTab('target',this)">Note cible</button>
+</div>
+
+<!-- ═══════════ TAB 1 : DIAPASON ═══════════ -->
+<div class="tab-panel active" id="tab-diapason">
+  <div class="card">
+    <div class="screen active" id="s-idle">
+      <div class="mic-icon">🎤</div>
+      <p class="idle-text">Appuyez pour commencer à chanter</p>
+      <button class="btn" onclick="startAudio('diapason')">Démarrer</button>
+    </div>
+    <div class="screen" id="s-error">
+      <div class="mic-icon">⚠️</div>
+      <p class="idle-text">Accès micro refusé.<br>Vérifiez les permissions.</p>
+      <button class="btn" onclick="startAudio('diapason')">Réessayer</button>
+    </div>
+    <div class="screen" id="s-live">
+      <div class="note-wrap">
+        <div class="note-name" id="d-note">—</div>
+        <div class="note-octave" id="d-oct"></div>
+      </div>
+      <div class="note-freq" id="d-freq">en attente…</div>
+      <div class="gauge-wrap">
+        <span class="gauge-label">♭</span>
+        <div class="gauge-track">
+          <div class="gauge-fill" id="d-fill"></div>
+          <div class="gauge-needle" id="d-needle"></div>
+          <div class="gauge-mark"></div>
+        </div>
+        <span class="gauge-label">♯</span>
+      </div>
+      <div class="cents-text" id="d-cents"></div>
+      <div class="history-wrap" id="d-hist"></div>
+      <button class="btn btn-stop" onclick="stopAudio()">Arrêter</button>
+    </div>
+  </div>
+  <div class="legend" id="d-legend" style="display:none">
+    <span><span style="color:var(--green)">●</span> juste ±10¢</span>
+    <span><span style="color:var(--yellow)">●</span> proche ±25¢</span>
+    <span><span style="color:var(--red)">●</span> faux</span>
+  </div>
+  <div class="algo-bar" id="algo-bar" style="display:none"></div>
+</div>
+
+<!-- ═══════════ TAB 2 : RÉGLAGES ═══════════ -->
+<div class="tab-panel" id="tab-settings">
+
+  <span class="sec-label">Algorithme de détection</span>
+  <div class="opt-row" id="row-algo">
+    <button class="opt-btn active" onclick="setOpt('algo','yin',this)">
+      <span class="on">YIN</span><span class="od">Diff. cumulée<br>normalisée</span>
+    </button>
+    <button class="opt-btn" onclick="setOpt('algo','mpm',this)">
+      <span class="on">MPM</span><span class="od">McLeod NSDF<br>+ interp.</span>
+    </button>
+    <button class="opt-btn" onclick="setOpt('algo','amdf',this)">
+      <span class="on">AMDF</span><span class="od">Diff. magnitude<br>moyenne</span>
+    </button>
+    <button class="opt-btn" onclick="setOpt('algo','autocorr',this)">
+      <span class="on">Autocorr</span><span class="od">Corrélation<br>normalisée</span>
+    </button>
+  </div>
+
+  <span class="sec-label" style="margin-top:4px">Type de lissage</span>
+  <div class="opt-row" id="row-smooth">
+    <button class="opt-btn active" onclick="setOpt('smoothing','median',this)">
+      <span class="on">Médiane</span><span class="od">Rejette les<br>pics aberrants</span>
+    </button>
+    <button class="opt-btn" onclick="setOpt('smoothing','mean',this)">
+      <span class="on">Moyenne</span><span class="od">Lissage doux,<br>peut dériver</span>
+    </button>
+    <button class="opt-btn" onclick="setOpt('smoothing','ema',this)">
+      <span class="on">EMA</span><span class="od">Exponentiel<br>configurable</span>
+    </button>
+    <button class="opt-btn" onclick="setOpt('smoothing','weighted',this)">
+      <span class="on">Pondérée</span><span class="od">Récent ×<br>plus de poids</span>
+    </button>
+  </div>
+
+  <span class="sec-label" style="margin-top:4px">Taille de fenêtre FFT</span>
+  <div class="opt-row" id="row-window">
+    <button class="opt-btn" onclick="setWindow(1024,this)">
+      <span class="on">1024</span><span class="od">~23 ms<br>réactif</span>
+    </button>
+    <button class="opt-btn active" onclick="setWindow(2048,this)">
+      <span class="on">2048</span><span class="od">~46 ms<br>équilibré</span>
+    </button>
+    <button class="opt-btn" onclick="setWindow(4096,this)">
+      <span class="on">4096</span><span class="od">~93 ms<br>précis graves</span>
+    </button>
+  </div>
+
+  <div class="card" style="margin-top:4px">
+    <div class="slider-group">
+
+      <div class="slider-row">
+        <div class="slider-label">
+          <span>Seuil YIN / MPM</span><b id="v-yin">0.12</b>
+        </div>
+        <input type="range" min="0.05" max="0.22" step="0.01" value="0.12"
+          oninput="P.yinThresh=+this.value;g('v-yin').textContent=this.value;resetBuf()">
+        <div class="slider-ends"><span>strict</span><span>souple</span></div>
+      </div>
+
+      <div class="slider-row">
+        <div class="slider-label">
+          <span>Seuil silence (RMS)</span><b id="v-rms">0.025</b>
+        </div>
+        <input type="range" min="0.005" max="0.07" step="0.005" value="0.025"
+          oninput="P.rmsThresh=+this.value;g('v-rms').textContent=(+this.value).toFixed(3);resetBuf()">
+        <div class="slider-ends"><span>très sensible</span><span>voix forte</span></div>
+      </div>
+
+      <div class="slider-row">
+        <div class="slider-label">
+          <span>Buffer lissage</span><b id="v-buf">5 frames (~230ms)</b>
+        </div>
+        <input type="range" min="2" max="14" step="1" value="5"
+          oninput="P.bufSize=+this.value;g('v-buf').textContent=this.value+' frames (~'+Math.round(+this.value*46)+'ms)';resetBuf()">
+        <div class="slider-ends"><span>réactif</span><span>stable</span></div>
+      </div>
+
+      <div class="slider-row">
+        <div class="slider-label">
+          <span>α EMA <small style="color:var(--dim)">(si lissage EMA)</small></span><b id="v-ema">0.35</b>
+        </div>
+        <input type="range" min="0.05" max="0.9" step="0.05" value="0.35"
+          oninput="P.emaAlpha=+this.value;g('v-ema').textContent=this.value">
+        <div class="slider-ends"><span>lent</span><span>rapide</span></div>
+      </div>
+
+    </div>
+  </div>
+
+  <p style="font-size:10px;color:var(--dim);text-align:center;line-height:1.6">
+    Réglages appliqués en temps réel.<br>
+    Changer la fenêtre redémarre le micro.
+  </p>
+</div>
+
+<!-- ═══════════ TAB 3 : NOTE CIBLE ═══════════ -->
+<div class="tab-panel" id="tab-target">
+
+  <div class="card">
+    <div class="screen active" id="t-idle">
+      <div class="mic-icon">🎯</div>
+      <p class="idle-text">Choisissez une note cible ci-dessous<br>puis démarrez</p>
+      <button class="btn" onclick="startAudio('target')">Démarrer</button>
+    </div>
+    <div class="screen" id="t-live">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:2px">
+        <div class="t-display" id="t-name">La</div>
+        <div class="t-hz" id="t-hz">440.0 Hz</div>
+      </div>
+
+      <svg class="bullseye-svg" viewBox="0 0 300 180">
+        <ellipse cx="150" cy="90" rx="128" ry="72" fill="rgba(245,168,168,.07)"  stroke="rgba(245,168,168,.22)" stroke-width="1.2"/>
+        <ellipse cx="150" cy="90" rx="82"  ry="46" fill="rgba(245,228,168,.09)"  stroke="rgba(245,228,168,.28)" stroke-width="1.2"/>
+        <ellipse cx="150" cy="90" rx="36"  ry="20" fill="rgba(168,245,194,.13)"  stroke="rgba(168,245,194,.38)" stroke-width="1.2"/>
+        <line x1="150" y1="79"  x2="150" y2="101" stroke="rgba(168,245,194,.22)" stroke-width="1"/>
+        <line x1="139" y1="90"  x2="161" y2="90"  stroke="rgba(168,245,194,.22)" stroke-width="1"/>
+        <text x="16"  y="94" fill="rgba(245,168,168,.5)" font-size="8.5" font-family="Courier New">♭ −50¢</text>
+        <text x="218" y="94" fill="rgba(245,168,168,.5)" font-size="8.5" font-family="Courier New">+50¢ ♯</text>
+        <text x="72"  y="148" fill="rgba(80,70,55,.45)" font-size="7.5" font-family="Courier New">−25¢</text>
+        <text x="191" y="148" fill="rgba(80,70,55,.45)" font-size="7.5" font-family="Courier New">+25¢</text>
+        <circle id="b-dot" cx="150" cy="90" r="10" fill="#444" opacity="0.2"/>
+        <text id="b-lbl" x="150" y="90" text-anchor="middle" dominant-baseline="central"
+          fill="white" font-size="8.5" font-family="Georgia" opacity="0"/>
+      </svg>
+
+      <div class="b-status" id="t-status" style="color:var(--muted)">en attente…</div>
+      <div class="note-freq" id="t-freq"></div>
+      <button class="btn btn-stop" onclick="stopAudio()">Arrêter</button>
+    </div>
+  </div>
+
+  <div class="card" style="padding:14px 12px">
+    <div class="sec-label" style="margin-bottom:8px">Note cible</div>
+    <div class="note-picker" id="note-picker"></div>
+    <div class="sec-label" style="margin:10px 0 6px">Octave</div>
+    <div class="oct-row" id="oct-picker"></div>
+  </div>
+</div>
+
+<script>
+// ─── PARAMS ──────────────────────────────────────────────────────────────────
+const P = { algo:'yin', smoothing:'median', windowSize:2048, yinThresh:0.12, rmsThresh:0.025, bufSize:5, emaAlpha:0.35 };
+
+// ─── NOTE HELPERS ─────────────────────────────────────────────────────────────
+const NOTES = ["Do","Do#","Ré","Ré#","Mi","Fa","Fa#","Sol","Sol#","La","La#","Si"];
+function midiToFreq(m) { return 440 * Math.pow(2,(m-69)/12); }
+function freqToNote(freq) {
+  if (!freq||freq<55||freq>1500) return null;
+  const midi=12*Math.log2(freq/440)+69, rounded=Math.round(midi), cents=Math.round((midi-rounded)*100);
+  return { name:NOTES[((rounded%12)+12)%12], octave:Math.floor(rounded/12)-1, cents, freq, midi };
+}
+
+// ─── ALGORITHMS ──────────────────────────────────────────────────────────────
+
+function algYIN(buf, sr) {
+  const half=buf.length>>1, diff=new Float32Array(half);
+  for(let tau=1;tau<half;tau++) for(let j=0;j<half;j++){const d=buf[j]-buf[j+tau];diff[tau]+=d*d;}
+  const cmnd=new Float32Array(half); cmnd[0]=1; let run=0;
+  for(let tau=1;tau<half;tau++){run+=diff[tau];cmnd[tau]=diff[tau]*tau/run;}
+  let tau=-1;
+  for(let t=2;t<half;t++){if(cmnd[t]<P.yinThresh){while(t+1<half&&cmnd[t+1]<cmnd[t])t++;tau=t;break;}}
+  if(tau<2) return null;
+  const a=cmnd[tau-1],b=cmnd[tau],c=tau+1<half?cmnd[tau+1]:b;
+  return sr/(b<a&&b<c ? tau-(c-a)/(2*(2*b-c-a)) : tau);
+}
+
+function algMPM(buf, sr) {
+  const N=buf.length,half=N>>1,nsdf=new Float32Array(half);
+  for(let tau=0;tau<half;tau++){
+    let rp=0,mp=0;
+    for(let j=0;j<N-tau;j++){rp+=buf[j]*buf[j+tau];mp+=buf[j]*buf[j]+buf[j+tau]*buf[j+tau];}
+    nsdf[tau]=mp>1e-10?2*rp/mp:0;
+  }
+  let mx=-Infinity; for(let i=1;i<half;i++) if(nsdf[i]>mx) mx=nsdf[i];
+  if(mx<0.3) return null;
+  const thr=Math.max(0.85,0.98-P.yinThresh*0.8);
+  let neg=false,tau=-1;
+  for(let i=1;i<half-1;i++){
+    if(!neg&&nsdf[i]<0)neg=true;
+    if(neg&&nsdf[i]>0)neg=false;
+    if(!neg&&nsdf[i]>thr*mx){while(i+1<half&&nsdf[i+1]>nsdf[i])i++;tau=i;break;}
+  }
+  if(tau<2) return null;
+  const a=nsdf[tau-1],b=nsdf[tau],c=tau+1<half?nsdf[tau+1]:b;
+  return sr/(b>a&&b>c ? tau+(c-a)/(2*(2*b-c-a)) : tau);
+}
+
+function algAMDF(buf, sr) {
+  const N=buf.length,tMin=Math.max(2,Math.ceil(sr/1400)),tMax=Math.min(Math.floor(sr/55),N>>1);
+  let best=-1,bestVal=Infinity;
+  for(let tau=tMin+1;tau<tMax-1;tau++){
+    let s=0; for(let j=0;j<N-tau;j++) s+=Math.abs(buf[j]-buf[j+tau]);
+    const v=s/(N-tau);
+    if(v<bestVal){bestVal=v;best=tau;}
+  }
+  // verify local minimum
+  if(best<tMin+1||best>=tMax-1) return null;
+  // compute neighbours
+  let sv=0; for(let j=0;j<N-best;j++) sv+=Math.abs(buf[j]-buf[j+best]); const vb=sv/(N-best);
+  let sl=0; for(let j=0;j<N-(best-1);j++) sl+=Math.abs(buf[j]-buf[j+best-1]); const vl=sl/(N-(best-1));
+  let sr2=0; for(let j=0;j<N-(best+1);j++) sr2+=Math.abs(buf[j]-buf[j+best+1]); const vr=sr2/(N-(best+1));
+  if(vb>vl||vb>vr||vb>0.25) return null;
+  return sr/best;
+}
+
+function algAutoCorr(buf, sr) {
+  const N=buf.length,tMin=Math.max(2,Math.ceil(sr/1400)),tMax=Math.min(Math.floor(sr/55),N>>1);
+  let r0=0; for(let j=0;j<N;j++) r0+=buf[j]*buf[j];
+  if(r0<1e-6) return null;
+  let prevR=0,rising=false,peakTau=-1,peakVal=-Infinity;
+  for(let tau=tMin;tau<=tMax;tau++){
+    let r=0; for(let j=0;j<N-tau;j++) r+=buf[j]*buf[j+tau];
+    const rn=r/r0;
+    if(tau>tMin){
+      if(rn>prevR) rising=true;
+      if(rising&&rn<prevR&&prevR>0.3){peakVal=prevR;peakTau=tau-1;break;}
+    }
+    prevR=rn;
+  }
+  if(peakTau<tMin) return null;
+  return sr/peakTau;
+}
+
+function detectPitch(buf,sr){
+  switch(P.algo){
+    case 'yin':      return algYIN(buf,sr);
+    case 'mpm':      return algMPM(buf,sr);
+    case 'amdf':     return algAMDF(buf,sr);
+    case 'autocorr': return algAutoCorr(buf,sr);
+  }
+  return null;
+}
+
+// ─── SMOOTHING ───────────────────────────────────────────────────────────────
+let freqBuf=[],emaVal=null;
+function resetBuf(){freqBuf=[];emaVal=null;}
+
+function pushAndSmooth(f){
+  switch(P.smoothing){
+    case 'median':{
+      freqBuf.push(f); if(freqBuf.length>P.bufSize) freqBuf.shift();
+      if(freqBuf.length<Math.min(3,P.bufSize)) return null;
+      const s=[...freqBuf].sort((a,b)=>a-b); return s[s.length>>1];
+    }
+    case 'mean':{
+      freqBuf.push(f); if(freqBuf.length>P.bufSize) freqBuf.shift();
+      if(freqBuf.length<Math.min(3,P.bufSize)) return null;
+      return freqBuf.reduce((a,b)=>a+b,0)/freqBuf.length;
+    }
+    case 'ema':{
+      emaVal=emaVal===null?f:emaVal*(1-P.emaAlpha)+f*P.emaAlpha;
+      return emaVal;
+    }
+    case 'weighted':{
+      freqBuf.push(f); if(freqBuf.length>P.bufSize) freqBuf.shift();
+      if(freqBuf.length<Math.min(3,P.bufSize)) return null;
+      let ws=0,tot=0; freqBuf.forEach((v,i)=>{const w=i+1;ws+=v*w;tot+=w;}); return ws/tot;
+    }
+  }
+  return f;
+}
+
+// ─── RMS ─────────────────────────────────────────────────────────────────────
+function rmsOf(buf){let s=0;for(let i=0;i<buf.length;i++)s+=buf[i]*buf[i];return Math.sqrt(s/buf.length);}
+
+// ─── AUDIO ───────────────────────────────────────────────────────────────────
+let actx=null,analyser=null,src=null,raf=null,mode=null;
+
+async function startAudio(m){
+  if(actx) stopAudio();
+  try{
+    const stream=await navigator.mediaDevices.getUserMedia({audio:true,video:false});
+    actx=new(window.AudioContext||window.webkitAudioContext)({sampleRate:44100});
+    analyser=actx.createAnalyser();
+    analyser.fftSize=P.windowSize;
+    analyser.smoothingTimeConstant=0;
+    src=actx.createMediaStreamSource(stream);
+    src.connect(analyser);
+    resetBuf(); history=[];
+    mode=m;
+    if(m==='diapason'){showSc('s-live');g('d-legend').style.display='flex';refreshAlgoBar();}
+    if(m==='target'){showSc('t-live');updateTargetLabel();}
+    raf=requestAnimationFrame(loop);
+  }catch(e){
+    if(m==='diapason') showSc('s-error');
+  }
+}
+
+function stopAudio(){
+  cancelAnimationFrame(raf);
+  if(src) src.disconnect();
+  if(actx) actx.close();
+  actx=null;analyser=null;src=null;mode=null;
+  showSc('s-idle');showSc('t-idle');
+  g('d-legend').style.display='none';
+  g('algo-bar').style.display='none';
+}
+
+function loop(){
+  const buf=new Float32Array(analyser.fftSize);
+  analyser.getFloatTimeDomainData(buf);
+  let note=null;
+  if(rmsOf(buf)>=P.rmsThresh){
+    const f=detectPitch(buf,actx.sampleRate);
+    if(f){const sf=pushAndSmooth(f);if(sf)note=freqToNote(sf);}
+    else resetBuf();
+  }else resetBuf();
+  if(mode==='diapason') renderDiapason(note);
+  if(mode==='target')   renderTarget(note);
+  raf=requestAnimationFrame(loop);
+}
+
+// ─── RENDER DIAPASON ─────────────────────────────────────────────────────────
+let history=[];
+function renderDiapason(note){
+  const nE=g('d-note'),oE=g('d-oct'),fE=g('d-freq'),filE=g('d-fill'),ndE=g('d-needle'),cE=g('d-cents'),hE=g('d-hist');
+  if(!note){
+    nE.textContent='—';nE.className='note-name';oE.textContent='';fE.textContent='en attente…';
+    cE.textContent='';filE.style.width='50%';ndE.style.left='50%';
+    ndE.style.background='#444';ndE.style.boxShadow='none';return;
+  }
+  const{name,octave,cents,freq}=note;
+  const inTune=Math.abs(cents)<=10,close=Math.abs(cents)<=25;
+  const pct=Math.max(0,Math.min(100,((cents+50)/100)*100));
+  nE.textContent=name;nE.className='note-name '+(inTune?'in-tune':close?'close':'off');
+  oE.textContent='octave '+octave;fE.textContent=freq.toFixed(1)+' Hz';
+  cE.textContent=inTune?'✓ juste':(cents>0?'+':'')+cents+' ¢';
+  filE.style.width=pct+'%';ndE.style.left=pct+'%';
+  const[col,glow]=inTune?['#a8f5c2','rgba(168,245,194,.85)']:close?['#f5e4a8','rgba(245,228,168,.7)']:['#f5a8a8','rgba(245,168,168,.7)'];
+  ndE.style.background=col;ndE.style.boxShadow='0 0 10px '+glow;
+  history.push({cents});if(history.length>40)history.shift();
+  hE.innerHTML=history.map((h,i)=>{
+    const c=Math.abs(h.cents),col=c<=10?'#a8f5c2':c<=25?'#f5e4a8':'#f5a8a8';
+    return `<div class="dot" style="background:${col};opacity:${(0.2+(i/history.length)*0.8).toFixed(2)}"></div>`;
+  }).join('');
+}
+
+// ─── RENDER TARGET ───────────────────────────────────────────────────────────
+let tNote=9,tOctave=4;
+function tMidi(){return(tOctave+1)*12+tNote;}
+function tFreq(){return midiToFreq(tMidi());}
+function updateTargetLabel(){
+  g('t-name').textContent=NOTES[tNote];
+  g('t-hz').textContent=tFreq().toFixed(1)+' Hz · MIDI '+tMidi();
+}
+
+function renderTarget(note){
+  const dot=g('b-dot'),lbl=g('b-lbl'),stEl=g('t-status'),frEl=g('t-freq');
+  if(!note){
+    dot.setAttribute('cx','150');dot.setAttribute('fill','#444');dot.setAttribute('opacity','0.2');
+    lbl.setAttribute('opacity','0');stEl.textContent='en attente…';stEl.style.color='var(--muted)';frEl.textContent='';return;
+  }
+  // diff in cents to target (clamp to ±100¢)
+  const diffMidi=note.midi-tMidi();
+  const diffC=Math.max(-100,Math.min(100,diffMidi*100));
+  const cx=150+(diffC/100)*128;
+  const inTune=Math.abs(diffC)<=10,close=Math.abs(diffC)<=25;
+  const col=inTune?'#a8f5c2':close?'#f5e4a8':'#f5a8a8';
+  const glowF=inTune?'drop-shadow(0 0 8px rgba(168,245,194,.9))':close?'drop-shadow(0 0 6px rgba(245,228,168,.7))':'none';
+  dot.setAttribute('cx',cx.toFixed(1));dot.setAttribute('fill',col);dot.setAttribute('opacity','0.9');dot.style.filter=glowF;
+  lbl.setAttribute('x',cx.toFixed(1));lbl.setAttribute('opacity','0.95');lbl.textContent=note.name;
+  const sign=diffC>=0?'+':'';
+  stEl.textContent=inTune?'✓ Note juste !':`${sign}${Math.round(diffC)} ¢  —  ${note.name}${note.octave} chanté`;
+  stEl.style.color=inTune?'var(--green)':close?'var(--yellow)':'var(--red)';
+  frEl.textContent=note.freq.toFixed(1)+' Hz  (cible : '+tFreq().toFixed(1)+' Hz)';
+}
+
+// ─── ALGO STATUS BAR ─────────────────────────────────────────────────────────
+function refreshAlgoBar(){
+  const bar=g('algo-bar');
+  if(!mode){bar.style.display='none';return;}
+  bar.style.display='block';
+  const an={yin:'YIN',mpm:'MPM',amdf:'AMDF',autocorr:'Autocorr'};
+  const sn={median:'médiane',mean:'moyenne',ema:'EMA',weighted:'pondérée'};
+  bar.textContent=`${an[P.algo]} · lissage ${sn[P.smoothing]} · fenêtre ${P.windowSize}`;
+}
+
+// ─── SETTINGS CALLBACKS ──────────────────────────────────────────────────────
+function setOpt(key,val,btn){
+  P[key]=val; resetBuf();
+  btn.closest('.opt-row').querySelectorAll('.opt-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  refreshAlgoBar();
+}
+function setWindow(w,btn){
+  P.windowSize=w;
+  btn.closest('.opt-row').querySelectorAll('.opt-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  if(actx&&mode){const m=mode;stopAudio();setTimeout(()=>startAudio(m),120);}
+  refreshAlgoBar();
+}
+
+// ─── TABS ────────────────────────────────────────────────────────────────────
+function switchTab(name,btn){
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  g('tab-'+name).classList.add('active');
+  btn.classList.add('active');
+}
+function showSc(sid){
+  const sc=g(sid); if(!sc) return;
+  sc.parentElement.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  sc.classList.add('active');
+}
+function g(i){return document.getElementById(i);}
+
+// ─── PICKERS ─────────────────────────────────────────────────────────────────
+function buildPickers(){
+  const np=g('note-picker');
+  NOTES.forEach((n,i)=>{
+    const b=document.createElement('button');
+    b.className='note-key'+(i===9?' active':'');
+    b.textContent=n;
+    b.onclick=()=>{tNote=i;np.querySelectorAll('.note-key').forEach(x=>x.classList.remove('active'));b.classList.add('active');updateTargetLabel();};
+    np.appendChild(b);
+  });
+  const op=g('oct-picker');
+  [2,3,4,5].forEach(o=>{
+    const b=document.createElement('button');
+    b.className='oct-btn'+(o===4?' active':'');
+    b.textContent='Octave '+o;
+    b.onclick=()=>{tOctave=o;op.querySelectorAll('.oct-btn').forEach(x=>x.classList.remove('active'));b.classList.add('active');updateTargetLabel();};
+    op.appendChild(b);
+  });
+}
+
+buildPickers();
+</script>
+</body>
+</html>
